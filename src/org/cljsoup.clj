@@ -11,26 +11,37 @@
 
 (inherit/inherit-ns 'hiccup.core)
 
-(defrecord Cljsoup [document selector])
-
-(defn text-resource [path]
+(defn file-resource [path]
   (slurp (str (System/getProperty "user.dir") "/" path)))
 
-(let [parser (Parser/xmlParser)]
-  (defn parse [html]
-    (Jsoup/parse html "String" parser)))
+(defrecord DocRelation [document where update delete])
 
-(defn parse! [html]
-  (protocol/nodes (parse html)))
+(defn parse [html]
+  (map->DocRelation {:document (Jsoup/parse html "String" (Parser/xmlParser))}))
 
-(defn select [selector nodes]
-  (Selector/select selector nodes))
+(defn clone [soup]
+  (map->DocRelation {:document (.clone (:document soup))}))
+
+(defn select [selector soup]
+  (let [s (clone soup)]
+    (assoc s :selector selector)))
+
+(defn select! [selector soup]
+  (let [s (select selector soup)]
+    (Selector/select (:selector s) (:document s))))
+    
+(defn select* [soup])
+
+(defn select [soup]
+  
+  )
 
 (defn select! [selector nodes]
   (map protocol/nodes (select selector nodes)))
 
-(defn attr [attribute value]
-  #(.attr % attribute value))
+(defn attr
+  ([attribute] #(.attr % attribute))
+  ([attribute value] #(.attr % attribute value)))
 
-(def html (parse* (text-resource "resources/test.html")))
+(def html (parse (file-resource "resources/test.html")))
 
