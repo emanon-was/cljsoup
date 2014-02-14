@@ -14,34 +14,36 @@
 (defn file-resource [path]
   (slurp (str (System/getProperty "user.dir") "/" path)))
 
-(defrecord DocRelation [document where update delete])
+;;(defprotocol Transform [selector alter])
 
 (defn parse [html]
-  (map->DocRelation {:document (Jsoup/parse html "String" (Parser/xmlParser))}))
+  (Jsoup/parse html "String" (Parser/xmlParser)))
 
-(defn clone [soup]
-  (map->DocRelation {:document (.clone (:document soup))}))
+(defn clone [document]
+  (.clone document))
 
-(defn select [selector soup]
-  (let [s (clone soup)]
-    (assoc s :selector selector)))
-
-(defn select! [selector soup]
-  (let [s (select selector soup)]
-    (Selector/select (:selector s) (:document s))))
+(defn select [selector document]
+  (.select document selector))
     
-(defn select* [soup])
-
-(defn select [soup]
-  
-  )
-
-(defn select! [selector nodes]
-  (map protocol/nodes (select selector nodes)))
-
 (defn attr
   ([attribute] #(.attr % attribute))
   ([attribute value] #(.attr % attribute value)))
 
+(defn transform* [document selector-and-method]
+  (let [document (clone document)
+        selector (first selector-and-method)
+        method   (second selector-and-method)]
+    (do
+      (method (select selector document))
+      document)))
+
+(defn transform [document & selector-and-method]
+  (println selector-and-method)
+  (if selector-and-method
+    (recur (transform* document (first selector-and-method))
+           (rest selector-and-method))
+    document))
+  
 (def html (parse (file-resource "resources/test.html")))
+
 
