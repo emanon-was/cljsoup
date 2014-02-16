@@ -3,25 +3,25 @@
   (:require [clojure.java.io :as io]
             [hiccup.core :as hiccup])
   (:import [org.jsoup Jsoup]
+           [org.jsoup.nodes Attribute Attributes Document Element TextNode]
            [org.jsoup.parser Parser]))
 
-
-(defn file-resource [#^String path]
+(defn file-resource [path]
   (slurp (str (System/getProperty "user.dir") "/" path)))
 
-(defn parse [#^String html]
+(defn parse [html]
   (Jsoup/parse html "String" (Parser/xmlParser)))
 
-(defn html-expand [#^Element document]
+(defn html-expand [document]
   (.toString document))
 
-(defn clone [#^Element document]
+(defn clone [document]
   (.clone document))
 
-(defn select [#^Element document #^String selector]
+(defn select [document selector]
   (.select document selector))
 
-(defn selection* [#^Element document selector-and-method]
+(defn selection* [document selector-and-method]
   (let [document (clone document)
         selector (first selector-and-method)
         method   (second selector-and-method)
@@ -30,15 +30,12 @@
       elements
       (map method elements))))
 
-(defn selection [#^Element document selector-and-method & more]
+(defn selection [document selector-and-method & more]
   (if (empty? more)
     (selection* document selector-and-method)
     (map
      #(selection* document %)
      (cons selector-and-method more))))
-
-(defn attr [#^String attribute]
-  #(.attr % attribute))
 
 (defn transform* [document selector-and-method]
   (let [document (clone document)
@@ -62,13 +59,15 @@
 (defn before [html]
   #(.before % html))
 
-(defn attr [attribute value]
-  #(.attr % attribute value))
+
+(defn attr
+  ([attribute]
+     #(.attr % attribute))
+  ([attribute value]
+     #(.attr % attribute value)))
 
   
-(def html (parse (file-resource "resources/test.html")))
-
-
+(def abc (parse (file-resource "resources/test.html")))
 
 
 (defn- inherit-var [var]
@@ -86,4 +85,4 @@
   (let [vars (vals (ns-publics ns))]
     (doseq [v vars] (inherit-var v))))
 
-(inherit/inherit-ns 'hiccup.core)
+(inherit-ns 'hiccup.core)
