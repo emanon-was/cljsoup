@@ -3,25 +3,22 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [hiccup.core :as hiccup])
-  (:import [java.net URL]
+  (:use [org.cljsoup.defstrict])
+  (:import [clojure.lang PersistentVector]
+           [java.net URL]
            [org.jsoup Jsoup]
            [org.jsoup.nodes Document Element]
            [org.jsoup.parser Parser]))
 
-;;
-;; Copy hiccup
-;;
-
-(def ^:macro cljhtml #'hiccup/html)
 
 ;;
 ;; Utils
 ;;
 
-(defn url [#^String url]
+(defstrict url [String url]
   (io/as-url url))
 
-(defn file-resource [#^String path]
+(defstrict file-resource [String path]
   (slurp (str (System/getProperty "user.dir") "/" path)))
 
 (defn- ns-keyword []
@@ -34,73 +31,63 @@
 ;; Document methods
 ;;
 
+(defstrict parse
+  ([String html] (Jsoup/parse html "String" (Parser/xmlParser)))
+  ([URL url] (Jsoup/parse (io/as-url url) 60000)))
 
-(defmulti parse (fn ([html-or-url] (class html-or-url))))
+(defstrict html-expand
+  ([Element e] (.toString e))
+  ([Elements e] (.toString e)))
 
-(defmulti parse class)
+(defstrict clone [Element e] (.clone e))
 
-(defmethod parse String [html]
-  (Jsoup/parse html "String" (Parser/xmlParser)))
+(defstrict select [Element e String selector]
+  (.select e selector))
 
-(defmethod parse URL [url]
-  (Jsoup/parse (io/as-url "https://github.com/") 60000))
-
-(defmulti html-expand class)
-
-(defmethod html-expand Element Elements [element]
-  (.toString element))
-
-(defmulti clone class)
-
-(defmethod clone Element [element]
-  (.clone element))
-
-(defmulti select (fn [element selector] [(class element) (class )]))
-
-(defn select [#^Element element #^String selector]
-  (.select element selector))
 
 ;;
 ;; Element methods
 ;;
 
-(defn add-class
-  ([#^String class-name]
+(defstrict add-class
+  ([String class-name]
      #(add-class % class-name))
-  ([#^Element element #^String class-name]
+  ([Element element String class-name]
      (.addClass element class-name)))
 
-(defn after [#^String html]
+(defstrict after [String html]
   #(.after % html))
 
-(defn before [#^String html]
+(defstrict before [String html]
   #(.before % html))
 
-(defn append [#^String html]
+(defstrict append [String html]
   #(.append % html))
 
-(defn prepend [#^String html]
+(defstrict prepend [String html]
   #(.prepend % html))
 
-(defn attr
-  ([#^String attribute]
+(defstrict attr
+  ([String attribute]
      #(.attr % attribute))
-  ([#^String attribute #^String value]
+  ([String attribute String value]
      #(.attr % attribute value)))
 
-(defn html
+(defstrict html
   ([]
      #(.html %))
-  ([#^String html]
-     #(.html % html)))
+  ([String html]
+     #(.html % html))
+  ([PersistentVector html]
+     (hiccup/html html)))
 
-(defn replace [#^String html]
+(defstrict replace [String html]
   #(-> % (.html html) .unwrap))
 
-(defn empty []
+(defstrict empty []
   #(.empty %))
 
-(defn first-element []
+(defstrict first-element []
   #(.first %))
 
 ;;
@@ -135,6 +122,18 @@
     document
     (recur (transform* document (first selector-and-method))
            (rest selector-and-method))))
+
+
+
+
+
+
+;; --------------------------------------
+;;
+;;  以下テンプレートエンジン部分製作中
+;;
+;;
+
 
 ;;
 ;; Options
