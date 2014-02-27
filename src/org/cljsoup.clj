@@ -1,114 +1,125 @@
 (ns org.cljsoup
   (:gen-class)
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
-            [hiccup.core :as hiccup])
-  (:use [org.cljsoup.defstrict])
-  (:import [clojure.lang PersistentVector]
-           [java.net URL]
-           [org.jsoup Jsoup]
-           [org.jsoup.nodes Document Element]
-           [org.jsoup.parser Parser]))
-
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [hiccup.core :as hiccup])
+  (:use
+   [org.cljsoup.macros])
+  (:import
+   ;; default
+   [java.net URL]
+   [clojure.lang PersistentVector]
+   ;; jsoup
+   [org.jsoup Jsoup]
+   [org.jsoup.nodes Element]
+   [org.jsoup.select Elements]
+   [org.jsoup.parser Parser]))
 
 ;;
 ;; Utils
 ;;
 
-(defstrict url [String url]
-  (io/as-url url))
+(defstrict url [String s]
+  (io/as-url s))
 
-(defstrict file-resource [String path]
-  (slurp (str (System/getProperty "user.dir") "/" path)))
+(defstrict file [String s]
+  (io/as-file s))
 
-(defn- ns-keyword []
-  (keyword (ns-name *ns*)))
-
-(defmacro ref-set! [name & body]
-  `(dosync (ref-set ~name ~@body)))
-
-;;
-;; Document methods
-;;
+(defstrict file-resource [String s]
+  (slurp (str (System/getProperty "user.dir") "/" s)))
 
 (defstrict parse
-  ([String html] (Jsoup/parse html "String" (Parser/xmlParser)))
-  ([URL url] (Jsoup/parse (io/as-url url) 60000)))
-
-(defstrict html-expand
+  ([URL u] (Jsoup/parse (io/as-url u) 60000))
+  ([String s] (Jsoup/parse s "String" (Parser/xmlParser)))
   ([Element e] (.toString e))
   ([Elements e] (.toString e)))
-
-(defstrict clone [Element e] (.clone e))
-
-(defstrict select [Element e String selector]
-  (.select e selector))
-
 
 ;;
 ;; Element methods
 ;;
 
-(defstrict add-class
-  ([String class-name]
-     #(add-class % class-name))
-  ([Element element String class-name]
-     (.addClass element class-name)))
+(defstrict clone
+  ([] #(clone %))
+  ([Element e] (.clone e))
+  ([Elements e] (.clone e)))
 
-(defstrict after [String html]
-  #(.after % html))
-
-(defstrict before [String html]
-  #(.before % html))
-
-(defstrict append [String html]
-  #(.append % html))
-
-(defstrict prepend [String html]
-  #(.prepend % html))
-
-(defstrict attr
-  ([String attribute]
-     #(.attr % attribute))
-  ([String attribute String value]
-     #(.attr % attribute value)))
+(defstrict select
+  ([String s] #(select % s))
+  ([Element e String s] (.select e s))
+  ([Elements e String s] (.select e s))
+  ([Element e String s PersistentVector v]
+     (let [e (clone e) t (select e s)]
+       ((apply comp (reverse v)) t)))
+  ([Elements e String s PersistentVector v]
+     (let [e (clone e) t (select e s)]
+       ((apply comp (reverse v)) t))))
 
 (defstrict html
-  ([]
-     #(.html %))
-  ([String html]
-     #(.html % html))
-  ([PersistentVector html]
-     (hiccup/html html)))
+  ([PersistentVector v] (hiccup/html v))
+  ([] #(html %))
+  ([String s] #(html % s))
+  ([Element e] (.html e))
+  ([Elements e] (.html e))
+  ([Element e String s] (.html e s))
+  ([Elements e String s] (.html e s)))
 
-(defstrict replace [String html]
-  #(-> % (.html html) .unwrap))
+(defstrict after
+  ([String s] #(after % s))
+  ([Element e String s] (.after e s))
+  ([Elements e String s] (.after e s)))
 
-(defstrict empty []
-  #(.empty %))
+(defstrict before
+  ([String s] #(before % s))
+  ([Element e String s] (.before e s))
+  ([Elements e String s] (.before e s)))
+  
+(defstrict append
+  ([String s] #(append % s))
+  ([Element e String s] (.append e s))
+  ([Elements e String s] (.append e s)))
 
-(defstrict first-element []
-  #(.first %))
+(defstrict prepend
+  ([String s] #(prepend % s))
+  ([Element e String s] (.prepend e s))
+  ([Elements e String s] (.prepend e s)))
+
+(defstrict add-class
+  ([String s] #(add-class % s))
+  ([Element e String s] (.addClass e s))
+  ([Elements e String s] (.addClass e s)))
+
+(defstrict attr
+  ([String s] #(attr % s))
+  ([Element e String s] (.attr e s))
+  ([Elements e String s] (.attr e s))
+  ([String a String v] #(attr % a v))
+  ([Element e String a String v] (.attr e a v))
+  ([Elements e String a String v] (.attr e a v)))
+
+(defstrict replace
+  ([String s] #(replace % s))
+  ([Element e String s] (.unwrap (.html e s)))
+  ([Elements e String s] (.unwrap (.html e s))))
+
+(defstrict empty
+  ([] #(empty %))
+  ([Element e] (.empty e))
+  ([Elements e] (.empty e)))
+
+(defstrict first-element
+  ([] #(first-element %))
+  ([Element e] (.first e))
+  ([Elements e] (.first e)))
+
+(defstrict last-element
+  ([] #(last-element %))
+  ([Element e] (.last e))
+  ([Elements e] (.last e)))
 
 ;;
 ;; Interface
 ;;
-
-(defn- selection* [document selector-and-method]
-  (let [document (clone document)
-        selector (first selector-and-method)
-        method   (second selector-and-method)
-        elements (select document selector)]
-    (if (nil? method)
-      elements
-      (map method elements))))
-
-(defn selection [document selector-and-method & more]
-  (if (empty? more)
-    (selection* document selector-and-method)
-    (map
-     #(selection* document %)
-     (cons selector-and-method more))))
 
 (defn- transform* [document selector-and-method]
   (let [document (clone document)
@@ -124,10 +135,6 @@
            (rest selector-and-method))))
 
 
-
-
-
-
 ;; --------------------------------------
 ;;
 ;;  以下テンプレートエンジン部分製作中
@@ -138,6 +145,14 @@
 ;;
 ;; Options
 ;;
+
+
+(defn- ns-keyword []
+  (keyword (ns-name *ns*)))
+
+(defmacro ref-set! [name & body]
+  `(dosync (ref-set ~name ~@body)))
+
 
 (def template-mode   (ref {}))
 (def template-prefix (ref {}))

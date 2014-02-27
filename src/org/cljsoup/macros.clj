@@ -1,4 +1,4 @@
-(ns org.cljsoup.defstrict
+(ns org.cljsoup.macros
   (:gen-class))
 
 (defn- resolve-class? [sym]
@@ -23,7 +23,7 @@
 
 (defn- multi-signatures [sigs]
   (map (comp multi-signature first)
-       (vals (group-by #(count (first %)) sigs))))
+       (vals (group-by #(count (-> % :args typed-args :syms)) sigs))))
   
 (defn- method-signature [sig]
   (let [args  (-> sig :args typed-args)
@@ -40,6 +40,7 @@
         multi-sigs (multi-signatures sigs)
         method-sigs (method-signatures sigs)]
     `(do
+       (def ~name nil)
        (defmulti ~name (fn ~@multi-sigs))
        (remove-all-methods ~name)
        ~@(map (fn [s] `(defmethod ~name ~@s)) method-sigs))))
