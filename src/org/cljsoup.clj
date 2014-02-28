@@ -12,7 +12,7 @@
    [clojure.lang PersistentVector]
    ;; jsoup
    [org.jsoup Jsoup]
-   [org.jsoup.nodes Element]
+   [org.jsoup.nodes Node]
    [org.jsoup.select Elements]
    [org.jsoup.parser Parser]))
 
@@ -32,107 +32,122 @@
 (defstrict parse
   ([URL u] (Jsoup/parse (io/as-url u) 60000))
   ([String s] (Jsoup/parse s "String" (Parser/xmlParser)))
-  ([Element e] (.toString e))
+  ([Node n] (.toString n))
   ([Elements e] (.toString e)))
 
 ;;
-;; Element methods
+;; Node methods
 ;;
 
 (defstrict clone
   ([] #(clone %))
-  ([Element e] (.clone e))
+  ([Node n] (.clone n))
   ([Elements e] (.clone e)))
 
 (defstrict select
   ([String s] #(select % s))
-  ([Element e String s] (.select e s))
-  ([Elements e String s] (.select e s))
-  ([Element e String s PersistentVector v]
-     (let [e (clone e) t (select e s)]
-       ((apply comp (reverse v)) t)))
-  ([Elements e String s PersistentVector v]
-     (let [e (clone e) t (select e s)]
-       ((apply comp (reverse v)) t))))
+  ([Node n String s & l]
+     (if (not l)
+       (.select n s)
+       (let [n (clone n) t (select n s)]
+         ((apply comp (reverse l)) t))))
+  ([Elements e String s & l]
+     (if (not l)
+       (.select e s)
+       (let [e (clone e) t (select e s)]
+         ((apply comp (reverse l)) t)))))
 
 (defstrict html
-  ([PersistentVector v] (hiccup/html v))
+  ([Vector v] (hiccup/html v))
   ([] #(html %))
   ([String s] #(html % s))
-  ([Element e] (.html e))
+  ([Node n] (.html n))
   ([Elements e] (.html e))
-  ([Element e String s] (.html e s))
+  ([Node n String s] (.html n s))
   ([Elements e String s] (.html e s)))
 
 (defstrict after
   ([String s] #(after % s))
-  ([Element e String s] (.after e s))
+  ([Node n String s] (.after n s))
   ([Elements e String s] (.after e s)))
 
 (defstrict before
   ([String s] #(before % s))
-  ([Element e String s] (.before e s))
+  ([Node n String s] (.before n s))
   ([Elements e String s] (.before e s)))
   
 (defstrict append
   ([String s] #(append % s))
-  ([Element e String s] (.append e s))
+  ([Node n String s] (.append n s))
   ([Elements e String s] (.append e s)))
 
 (defstrict prepend
   ([String s] #(prepend % s))
-  ([Element e String s] (.prepend e s))
+  ([Node n String s] (.prepend n s))
   ([Elements e String s] (.prepend e s)))
 
 (defstrict add-class
   ([String s] #(add-class % s))
-  ([Element e String s] (.addClass e s))
+  ([Node n String s] (.addClass n s))
   ([Elements e String s] (.addClass e s)))
 
 (defstrict attr
   ([String s] #(attr % s))
-  ([Element e String s] (.attr e s))
+  ([Node n String s] (.attr n s))
   ([Elements e String s] (.attr e s))
   ([String a String v] #(attr % a v))
-  ([Element e String a String v] (.attr e a v))
+  ([Node n String a String v] (.attr n a v))
   ([Elements e String a String v] (.attr e a v)))
 
 (defstrict replace
   ([String s] #(replace % s))
-  ([Element e String s] (.unwrap (.html e s)))
+  ([Node e String s] (.unwrap (.html e s)))
   ([Elements e String s] (.unwrap (.html e s))))
 
 (defstrict empty
   ([] #(empty %))
-  ([Element e] (.empty e))
+  ([Node n] (.empty n))
   ([Elements e] (.empty e)))
 
 (defstrict first-element
   ([] #(first-element %))
-  ([Element e] (.first e))
+  ([Node n] (.first n))
   ([Elements e] (.first e)))
 
 (defstrict last-element
   ([] #(last-element %))
-  ([Element e] (.last e))
+  ([Node n] (.last n))
   ([Elements e] (.last e)))
 
 ;;
 ;; Interface
 ;;
 
-(defn- transform* [document selector-and-method]
-  (let [document (clone document)
-        selector (first selector-and-method)
-        method   (second selector-and-method)]
-    (method (select document selector))
-    document))
+(defstrict transform
+  ([Node n String s Function f] (select n s f)))
 
-(defn transform [document & selector-and-method]
-  (if (empty? selector-and-method)
-    document
-    (recur (transform* document (first selector-and-method))
-           (rest selector-and-method))))
+;; (def Nil (quote Nil))
+;; (def Function (quote Function))
+;; (def tramsform nil)
+;; (defmulti tramsform
+;;   (fn ([Node n String s f] [(org.cljsoup.macros/classes f)])))
+;; (remove-all-methods tramsform)
+;; (defmethod tramsform [Node String Function] [n s f] (select n s f))
+
+
+
+;; (defn- transform* [document selector-and-method]
+;;   (let [document (clone document)
+;;         selector (first selector-and-method)
+;;         method   (second selector-and-method)]
+;;     (method (select document selector))
+;;     document))
+
+;; (defn transform [document & selector-and-method]
+;;   (if (empty? selector-and-method)
+;;     document
+;;     (recur (transform* document (first selector-and-method))
+;;            (rest selector-and-method))))
 
 
 ;; --------------------------------------
@@ -197,3 +212,4 @@
   (let [i (gensym)]
     `(time (dotimes [~i 1000]
              ~@body))))
+
