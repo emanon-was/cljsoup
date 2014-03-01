@@ -9,7 +9,7 @@
   (:import
    ;; default
    [java.net URL]
-   [clojure.lang PersistentVector]
+   [java.io File]
    ;; jsoup
    [org.jsoup Jsoup]
    [org.jsoup.nodes Node]
@@ -26,11 +26,12 @@
 (defstrict file [String s]
   (io/as-file s))
 
-(defstrict file-resource [String s]
-  (slurp (str (System/getProperty "user.dir") "/" s)))
+(defstrict local-file [String s]
+  (file (str (System/getProperty "user.dir") "/" s)))
 
 (defstrict parse
-  ([URL u] (Jsoup/parse (io/as-url u) 60000))
+  ([URL u] (Jsoup/parse (slurp u) (.toString u) (Parser/xmlParser)))
+  ([File f] (Jsoup/parse (slurp f) (.toString f) (Parser/xmlParser)))
   ([String s] (Jsoup/parse s "String" (Parser/xmlParser)))
   ([Node n] (.toString n))
   ([Elements e] (.toString e)))
@@ -125,15 +126,6 @@
 
 (defstrict transform
   ([Node n String s Function f] (select n s f)))
-
-;; (def Nil (quote Nil))
-;; (def Function (quote Function))
-;; (def tramsform nil)
-;; (defmulti tramsform
-;;   (fn ([Node n String s f] [(org.cljsoup.macros/classes f)])))
-;; (remove-all-methods tramsform)
-;; (defmethod tramsform [Node String Function] [n s f] (select n s f))
-
 
 
 ;; (defn- transform* [document selector-and-method]
