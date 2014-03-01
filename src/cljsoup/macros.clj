@@ -1,4 +1,4 @@
-(ns org.cljsoup.macros
+(ns cljsoup.macros
   (:gen-class))
 
 (defn classes? [sym]
@@ -43,7 +43,7 @@
 
 (defn- multi-signatures [sigs]
   (map (comp multi-signature first)
-       (vals (group-by #(count (-> % :typed-args :syms)) sigs))))
+       (vals (group-by #(count (% :default-args)) sigs))))
   
 (defn- method-signature [sig]
   (let [types (vec (-> sig :typed-args :types))

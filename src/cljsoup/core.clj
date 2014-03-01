@@ -1,18 +1,18 @@
-(ns org.cljsoup
+(ns cljsoup.core
   (:gen-class)
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
    [hiccup.core :as hiccup])
   (:use
-   [org.cljsoup.macros])
+   [cljsoup.macros])
   (:import
    ;; default
    [java.net URL]
    [java.io File]
    ;; jsoup
    [org.jsoup Jsoup]
-   [org.jsoup.nodes Node]
+   [org.jsoup.nodes Element]
    [org.jsoup.select Elements]
    [org.jsoup.parser Parser]))
 
@@ -24,16 +24,16 @@
   (io/as-url s))
 
 (defstrict file [String s]
-  (io/as-file s))
+  (io/file s))
 
 (defstrict local-file [String s]
-  (file (str (System/getProperty "user.dir") "/" s)))
+  (io/file (System/getProperty "user.dir") s))
 
 (defstrict parse
   ([URL u] (Jsoup/parse (slurp u) (.toString u) (Parser/xmlParser)))
   ([File f] (Jsoup/parse (slurp f) (.toString f) (Parser/xmlParser)))
   ([String s] (Jsoup/parse s "String" (Parser/xmlParser)))
-  ([Node n] (.toString n))
+  ([Element e] (.toString e))
   ([Elements e] (.toString e)))
 
 ;;
@@ -42,82 +42,100 @@
 
 (defstrict clone
   ([] #(clone %))
-  ([Node n] (.clone n))
+  ([Element e] (.clone e))
   ([Elements e] (.clone e)))
 
 (defstrict select
   ([String s] #(select % s))
-  ([Node n String s & l]
-     (if (not l)
-       (.select n s)
-       (let [n (clone n) t (select n s)]
-         ((apply comp (reverse l)) t))))
-  ([Elements e String s & l]
-     (if (not l)
-       (.select e s)
-       (let [e (clone e) t (select e s)]
-         ((apply comp (reverse l)) t)))))
+  ([Element e String s] (.select e s))
+  ([Elements e String s] (.select e s)))
 
 (defstrict html
   ([Vector v] (hiccup/html v))
   ([] #(html %))
   ([String s] #(html % s))
-  ([Node n] (.html n))
+  ([Element e] (.html e))
   ([Elements e] (.html e))
-  ([Node n String s] (.html n s))
+  ([Element e String s] (.html e s))
   ([Elements e String s] (.html e s)))
 
 (defstrict after
   ([String s] #(after % s))
-  ([Node n String s] (.after n s))
+  ([Element e String s] (.after e s))
   ([Elements e String s] (.after e s)))
 
 (defstrict before
   ([String s] #(before % s))
-  ([Node n String s] (.before n s))
+  ([Element e String s] (.before e s))
   ([Elements e String s] (.before e s)))
   
 (defstrict append
   ([String s] #(append % s))
-  ([Node n String s] (.append n s))
+  ([Element e String s] (.append e s))
   ([Elements e String s] (.append e s)))
 
 (defstrict prepend
   ([String s] #(prepend % s))
-  ([Node n String s] (.prepend n s))
+  ([Element e String s] (.prepend e s))
   ([Elements e String s] (.prepend e s)))
 
 (defstrict add-class
   ([String s] #(add-class % s))
-  ([Node n String s] (.addClass n s))
+  ([Element e String s] (.addClass e s))
   ([Elements e String s] (.addClass e s)))
+
+(defstrict remove-class
+  ([String s] #(remove-class % s))
+  ([Element e String s] (.removeClass e s))
+  ([Elements e String s] (.removeClass e s)))
+
+(defstrict toggle-class
+  ([String s] #(toggle-class % s))
+  ([Element e String s] (.toggleClass e s))
+  ([Elements e String s] (.toggleClass e s)))
+
+(defstrict val
+  ([] #(val %))
+  ([String s] #(val % s))
+  ([Element e] (.val e))
+  ([Elements e] (.val e))
+  ([Element e String s] (.val e s))
+  ([Elements e String s] (.val e s)))
 
 (defstrict attr
   ([String s] #(attr % s))
-  ([Node n String s] (.attr n s))
+  ([Element e String s] (.attr e s))
   ([Elements e String s] (.attr e s))
   ([String a String v] #(attr % a v))
-  ([Node n String a String v] (.attr n a v))
+  ([Element e String a String v] (.attr e a v))
   ([Elements e String a String v] (.attr e a v)))
+
+(defstrict attrs
+  ([] #(.attributes %))
+  ([Element e] (.attributes e)))
+
+(defstrict children
+  ([] #(children %))
+  ([Element e] (.childNodes e)))
 
 (defstrict replace
   ([String s] #(replace % s))
-  ([Node e String s] (.unwrap (.html e s)))
+  ([Element e String s] (.unwrap (.html e s)))
   ([Elements e String s] (.unwrap (.html e s))))
 
 (defstrict empty
   ([] #(empty %))
-  ([Node n] (.empty n))
+  ([Element e] (.empty e))
   ([Elements e] (.empty e)))
 
 (defstrict first-element
   ([] #(first-element %))
-  ([Node n] (.first n))
+  ([Element e] (.first e))
   ([Elements e] (.first e)))
 
 (defstrict last-element
   ([] #(last-element %))
-  ([Node n] (.last n))
+  ([Element e] (.last e))
   ([Elements e] (.last e)))
 
 ;;
@@ -125,7 +143,7 @@
 ;;
 
 (defstrict transform
-  ([Node n String s Function f] (select n s f)))
+  ([Element e String s Function f] (select e s f)))
 
 
 ;; (defn- transform* [document selector-and-method]
@@ -193,7 +211,7 @@
 ;; Etc
 ;;
 
-(def abc (parse (file-resource "resources/test.html")))
+(def abc (parse (local-file "resources/test.html")))
 
 (defmacro time100 [& body]
   (let [i (gensym)]
