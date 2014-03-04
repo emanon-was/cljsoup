@@ -7,6 +7,7 @@
         (= sym 'List) true
         (= sym 'Vector) true
         (= sym 'Map) true
+        (= sym 'Symbol) true
         (= sym '&) false
         :else (class? (resolve sym))))
 
@@ -16,6 +17,7 @@
         (list? val) 'List
         (vector? val) 'Vector
         (map? val) 'Map
+        (symbol? val) 'Symbol
         :else (class val)))
 
 (defn- default-args [args]
@@ -59,9 +61,9 @@
         multi-sigs (multi-signatures sigs)
         method-sigs (method-signatures sigs)
         imitate (filter #(not (resolve %))
-                        '[Nil Function List Vector Map])]
+                        '[Nil Function List Vector Map Symbol])]
     `(do
-       ~@(map (fn [s] `(def ~s '~s)) imitate)
+       ~@(map (fn [s] `(def ~(with-meta s {:private true}) '~s)) imitate)
        (def ~name nil)
        (defmulti ~name (fn ~@multi-sigs))
        ~@(map (fn [s] `(defmethod ~name ~@s)) method-sigs))))

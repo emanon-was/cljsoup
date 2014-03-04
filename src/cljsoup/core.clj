@@ -12,9 +12,11 @@
    [java.io File]
    ;; jsoup
    [org.jsoup Jsoup]
-   [org.jsoup.nodes Element]
+   [org.jsoup.nodes
+    Attribute Attributes Comment DataNode Document
+    DocumentType Element Node TextNode XmlDeclaration]
    [org.jsoup.select Elements]
-   [org.jsoup.parser Parser]))
+   [org.jsoup.parser Parser Tag]))
 
 ;;
 ;; Utils
@@ -37,7 +39,37 @@
   ([Elements e] (.toString e)))
 
 ;;
-;; Node methods
+;; Enlive nodes
+;;
+
+(defstrict ^:private keysym [String s]
+  (keyword (.. s toLowerCase)))
+
+(defstrict nodes
+  ([Nil _] nil)
+  ([String s] s)
+  ([List l] (map nodes l))
+  ([Vector v] (map nodes v))
+  ([Map m] m)
+  ([Attribute a] [(keysym (.getKey a)) (.getValue a)])
+  ([Attributes as] (not-empty (into {} (map nodes as))))
+  ([Comment c] {:type :comment :data (.getData c)})
+  ([DataNode dn] (str dn))
+  ([Document d] (not-empty (map nodes (.childNodes d))))
+  ([DocumentType dtd]
+     {:type :dtd :data
+      ((juxt :name :publicid :systemid)
+       (nodes (.attributes dtd)))})
+  ([Element e]
+     {:tag (keysym (.tagName e))
+      :attrs (nodes (.attributes e))
+      :content (not-empty (map nodes (.childNodes e)))})
+  ([Elements e] (map nodes e))
+  ([TextNode tn] (.getWholeText tn)))
+
+
+;;
+;; Jsoup methods
 ;;
 
 (defstrict clone
@@ -47,8 +79,8 @@
 
 (defstrict select
   ([String s] #(select % s))
-  ([Element e String s] (.select e s))
-  ([Elements e String s] (.select e s)))
+  ([Element e String s] (.select (clone e) s))
+  ([Elements e String s] (.select (clone e) s)))
 
 (defstrict html
   ([Vector v] (hiccup/html v))
@@ -58,6 +90,13 @@
   ([Elements e] (.html e))
   ([Element e String s] (.html e s))
   ([Elements e String s] (.html e s)))
+
+(defstrict outer-html
+  ([String s] #(outer-html % s))
+  ([Element e] (.outerHtml e))
+  ([Elements e] (.outerHtml e))
+  ([Element e String s] (.unwrap (.html e s)))
+  ([Elements e String s] (.unwrap (.html e s))))
 
 (defstrict after
   ([String s] #(after % s))
@@ -94,13 +133,10 @@
   ([Element e String s] (.toggleClass e s))
   ([Elements e String s] (.toggleClass e s)))
 
-(defstrict val
-  ([] #(val %))
-  ([String s] #(val % s))
-  ([Element e] (.val e))
-  ([Elements e] (.val e))
-  ([Element e String s] (.val e s))
-  ([Elements e String s] (.val e s)))
+(defstrict attrs
+  ([] #(.attributes %))
+  ([Element e] (.attributes e))
+  ([Elements e] (map attrs e)))
 
 (defstrict attr
   ([String s] #(attr % s))
@@ -110,21 +146,23 @@
   ([Element e String a String v] (.attr e a v))
   ([Elements e String a String v] (.attr e a v)))
 
-(defstrict attrs
-  ([] #(.attributes %))
-  ([Element e] (.attributes e)))
+(defstrict remove-attr
+  ([String s] #(remove-attr % s))
+  ([Element e String s] (.removeAttr e s))
+  ([Elements e String s] (.removeAttr e s)))
+
+(defstrict parent
+  ([] #(parent %))
+  ([Element e] (first (.parents e)))
+  ([Elements e] (first (.parents e))))
 
 (defstrict children
   ([] #(children %))
-  ([Element e] (.childNodes e)))
+  ([Element e] (vec (.childNodes e)))
+  ([Elements e] (map children e)))
 
-(defstrict replace
-  ([String s] #(replace % s))
-  ([Element e String s] (.unwrap (.html e s)))
-  ([Elements e String s] (.unwrap (.html e s))))
-
-(defstrict empty
-  ([] #(empty %))
+(defstrict remove-all
+  ([] #(remove-all %))
   ([Element e] (.empty e))
   ([Elements e] (.empty e)))
 
@@ -138,88 +176,35 @@
   ([Element e] (.last e))
   ([Elements e] (.last e)))
 
-;;
-;; Interface
-;;
+(defstrict text
+  ([] #(text %))
+  ([Element e] (.text e))
+  ([Elements e] (.text e)))
+
+(defstrict value
+  ([] #(value %))
+  ([String s] #(val % s))
+  ([Element e] (.val e))
+  ([Elements e] (.val e))
+  ([Element e String s] (.val e s))
+  ([Elements e String s] (.val e s)))
+
+(defstrict wrap
+  ([String s] #(wrap % s))
+  ([Element e String s] (.wrap e s))
+  ([Elements e String s] (.wrap e s)))
+
+(defstrict unwrap
+  ([] #(unwrap %))
+  ([Element e] (.unwrap e))
+  ([Elements e] (.unwrap e)))
 
 (defstrict transform
-  ([Element e String s Function f] (select e s f)))
-
-
-;; (defn- transform* [document selector-and-method]
-;;   (let [document (clone document)
-;;         selector (first selector-and-method)
-;;         method   (second selector-and-method)]
-;;     (method (select document selector))
-;;     document))
-
-;; (defn transform [document & selector-and-method]
-;;   (if (empty? selector-and-method)
-;;     document
-;;     (recur (transform* document (first selector-and-method))
-;;            (rest selector-and-method))))
-
-
-;; --------------------------------------
-;;
-;;  以下テンプレートエンジン部分製作中
-;;
-;;
-
-
-;;
-;; Options
-;;
-
-
-(defn- ns-keyword []
-  (keyword (ns-name *ns*)))
-
-(defmacro ref-set! [name & body]
-  `(dosync (ref-set ~name ~@body)))
-
-
-(def template-mode   (ref {}))
-(def template-prefix (ref {}))
-(def template-cache  (ref {}))
-
-(def template-ns (ns-keyword))
-(ref-set! template-mode   (assoc @template-mode template-ns :development))
-(ref-set! template-prefix (assoc @template-prefix template-ns nil))
-(ref-set! template-cache  (assoc @template-cache template-ns nil))
-
-;;
-;; Privates
-;;
-
-(defn- use-mode []
-  (let [nskey (ns-keyword)]
-    (or (@template-mode nskey)
-        (@template-mode template-ns))))
-
-(defn- use-prefix []
-  (let [nskey (ns-keyword)]
-    (or (@template-prefix nskey)
-        (@template-prefix template-ns))))
-
-(defn- use-cache []
-  (let [nskey (ns-keyword)]
-    (or (@template-cache nskey)
-        (@template-cache template-ns))))
-
-;;
-;; Etc
-;;
-
-(def abc (parse (local-file "resources/test.html")))
-
-(defmacro time100 [& body]
-  (let [i (gensym)]
-    `(time (dotimes [~i 100]
-             ~@body))))
-
-(defmacro time1000 [& body]
-  (let [i (gensym)]
-    `(time (dotimes [~i 1000]
-             ~@body))))
+  ([String s Function f] #(transform % s f))
+  ([Element e String s Function f]
+     (let [e (clone e)]
+       (-> e (.select s) f) e))
+  ([Elements e String s Function f]
+     (let [e (clone e)]
+       (-> e (.select s) f) e)))
 
