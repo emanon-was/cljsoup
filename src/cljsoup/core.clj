@@ -92,11 +92,14 @@
   ([Elements e String s] (.html e s)))
 
 (defstrict outer-html
-  ([String s] #(outer-html % s))
+  ([] #(outer-html %))
   ([Element e] (.outerHtml e))
-  ([Elements e] (.outerHtml e))
+  ([Elements e] (.outerHtml e)))
+
+(defstrict replace-with
+  ([String s] #(replace-with % s))
   ([Element e String s] (.unwrap (.html e s)))
-  ([Elements e String s] (.unwrap (.html e s))))
+  ([Elements e String s] (map (replace-with s) e)))
 
 (defstrict after
   ([String s] #(after % s))
@@ -141,7 +144,7 @@
 (defstrict attr
   ([String s] #(attr % s))
   ([Element e String s] (.attr e s))
-  ([Elements e String s] (.attr e s))
+  ([Elements e String s] (map (attr s) e))
   ([String a String v] #(attr % a v))
   ([Element e String a String v] (.attr e a v))
   ([Elements e String a String v] (.attr e a v)))
