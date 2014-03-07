@@ -6,7 +6,8 @@
         (= sym 'Function) true
         (= sym 'List) true
         (= sym 'Vector) true
-        (= sym 'Map) true
+        (= sym 'HashMap) true
+        (= sym 'HashSet) true
         (= sym 'Symbol) true
         (= sym '&) false
         :else (class? (resolve sym))))
@@ -16,7 +17,8 @@
         (fn?  val) 'Function
         (list? val) 'List
         (vector? val) 'Vector
-        (map? val) 'Map
+        (map? val) 'HashMap
+        (set? val) 'HashSet
         (symbol? val) 'Symbol
         :else (class val)))
 
@@ -61,7 +63,7 @@
         multi-sigs (multi-signatures sigs)
         method-sigs (method-signatures sigs)
         imitate (filter #(not (resolve %))
-                        '[Nil Function List Vector Map Symbol])]
+                        '[Nil Function List Vector HashMap HashSet Symbol])]
     `(do
        ~@(map (fn [s] `(def ~(with-meta s {:private true}) '~s)) imitate)
        (def ~name nil)

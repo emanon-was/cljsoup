@@ -7,7 +7,7 @@
   (defn test-html []
     (-> abcdefg
      (transform "div#test" (add-class "asdf"))
-     (transform "clojure" (html (html [:div.htmltest "action"]))))))
+     (transform "clojure" (html (parse [:div.htmltest "action"]))))))
   
 ;; (defmacro time100 [& body]
 ;;   (let [i (gensym)]

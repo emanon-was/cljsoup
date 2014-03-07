@@ -28,15 +28,18 @@
 (defstrict file [String s]
   (io/file s))
 
-(defstrict local-file [String s]
-  (io/file (System/getProperty "user.dir") s))
+(let [local-dir (System/getProperty "user.dir")]
+  (defstrict local-file [String s]
+    (io/file local-dir s)))
 
-(defstrict parse
-  ([URL u] (Jsoup/parse (slurp u) (.toString u) (Parser/xmlParser)))
-  ([File f] (Jsoup/parse (slurp f) (.toString f) (Parser/xmlParser)))
-  ([String s] (Jsoup/parse s "String" (Parser/xmlParser)))
-  ([Element e] (.toString e))
-  ([Elements e] (.toString e)))
+(let [parser (Parser/xmlParser)]
+  (defstrict parse
+    ([URL u] (Jsoup/parse (slurp u) (.toString u) parser))
+    ([File f] (Jsoup/parse (slurp f) (.toString f) parser))
+    ([String s] (Jsoup/parse s "String" parser))
+    ([Vector v] (hiccup/html v))
+    ([Element e] (.toString e))
+    ([Elements e] (.toString e))))
 
 ;;
 ;; Enlive nodes
@@ -50,7 +53,7 @@
   ([String s] s)
   ([List l] (map nodes l))
   ([Vector v] (map nodes v))
-  ([Map m] m)
+  ([HashMap m] m)
   ([Attribute a] [(keysym (.getKey a)) (.getValue a)])
   ([Attributes as] (not-empty (into {} (map nodes as))))
   ([Comment c] {:type :comment :data (.getData c)})
@@ -83,7 +86,6 @@
   ([Elements e String s] (.select (clone e) s)))
 
 (defstrict html
-  ([Vector v] (hiccup/html v))
   ([] #(html %))
   ([String s] #(html % s))
   ([Element e] (.html e))
