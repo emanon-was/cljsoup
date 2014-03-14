@@ -18,6 +18,17 @@
    [org.jsoup.select Elements]
    [org.jsoup.parser Parser Tag]))
 
+
+;;
+;; for exports
+;;
+
+(let [ns *ns*]
+  (defmacro inheritance []
+    `(ns-inheritance ~(ns-name ns)))
+  (defmacro uninheritance []
+    `(ns-uninheritance ~(ns-name ns))))
+
 ;;
 ;; Utils
 ;;
@@ -40,6 +51,7 @@
     ([Vector v] (hiccup/html v))
     ([Element e] (.toString e))
     ([Elements e] (.toString e))))
+
 
 ;;
 ;; Enlive nodes
@@ -212,4 +224,5 @@
   ([Elements e String s Function f]
      (let [e (clone e)]
        (-> e (.select s) f) e)))
+
 

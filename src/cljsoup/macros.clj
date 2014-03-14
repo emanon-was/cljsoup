@@ -1,6 +1,10 @@
 (ns cljsoup.macros
   (:gen-class))
 
+;;
+;; defstrict
+;;
+
 (defn classes? [sym]
   (cond (= sym 'Nil) true
         (= sym 'Function) true
@@ -9,7 +13,7 @@
         (= sym 'HashMap) true
         (= sym 'HashSet) true
         (= sym 'Symbol) true
-        (= sym '&) false
+        (= sym '&) true
         :else (class? (resolve sym))))
 
 (defn classes [val]
@@ -20,14 +24,22 @@
         (map? val) 'HashMap
         (set? val) 'HashSet
         (symbol? val) 'Symbol
+        (seq? val) 'Sequence
         :else (class val)))
 
+;;
+;; 
+;;
 (defn- default-args [args]
-  (flatten (map #(if (classes? (first %)) (second %) %) args)))
+  (let [fn #(if (and (classes? (first %))
+                     (not= '& (first %)))
+              (second %) %)]
+    (flatten (map fn args))))
 
 (defn typed-args [args]
   (let [typed-args (filter (comp classes? first) args)]
-    {:types (map first typed-args),
+    {:types (map #(let [f (first %)] (if (= '& f) 'Sequence f))
+                 typed-args),
      :syms (map second typed-args)}))
 
 (defn- signature [sig]
@@ -63,7 +75,7 @@
         multi-sigs (multi-signatures sigs)
         method-sigs (method-signatures sigs)
         imitate (filter #(not (resolve %))
-                        '[Nil Function List Vector HashMap HashSet Symbol])]
+                        '[Nil Function List Vector HashMap HashSet Symbol Sequence])]
     `(do
        ~@(map (fn [s] `(def ~(with-meta s {:private true}) '~s)) imitate)
        (def ~name nil)
@@ -74,3 +86,21 @@
   (if (vector? (first sigs))
     `(defstrict* ~name ~sigs)
     `(defstrict* ~name ~@sigs)))
+
+;;
+;; ns-inheritance, ns-uninheritance
+;;
+
+(defmacro ns-inheritance [ns]
+  (let [publics (ns-publics ns)
+        syms (keys publics)]
+    `(do ~@(map (fn [sym] `(def ~sym ~(publics sym))) syms))))
+
+(defmacro ns-uninheritance [ns]
+  (let [syms (keys (ns-publics ns))]
+    `(do ~@(map (fn [s] `(ns-unmap '~(ns-name *ns*) '~s))
+                (filter #(= (ns-resolve (find-ns ns) %)
+                            (let [r (ns-resolve *ns* %)]
+                              (if r (var-get r) nil)))
+                        syms)))))
+
