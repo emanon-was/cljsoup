@@ -5,66 +5,56 @@
 ;; defstrict
 ;;
 
-(defn classes? [sym]
-  (cond (= sym 'Nil) true
-        (= sym 'Function) true
-        (= sym 'List) true
-        (= sym 'Vector) true
-        (= sym 'HashMap) true
-        (= sym 'HashSet) true
-        (= sym 'Symbol) true
-        (= sym '&) true
-        :else (class? (resolve sym))))
+(let [common-type
+      {'& clojure.lang.ArraySeq
+       :Function clojure.lang.Fn
+       :String java.lang.String
+       :Number java.lang.Number
+       :List clojure.lang.PersistentList
+       :Vector clojure.lang.PersistentVector
+       :HashMap clojure.lang.PersistentArrayMap
+       :HashSet clojure.lang.PersistentHashSet
+       :Symbol clojure.lang.Symbol
+       :Sequence clojure.lang.ArraySeq
+       :Nil nil}]
 
-(defn classes [val]
-  (cond (nil? val) 'Nil
-        (fn?  val) 'Function
-        (list? val) 'List
-        (vector? val) 'Vector
-        (map? val) 'HashMap
-        (set? val) 'HashSet
-        (symbol? val) 'Symbol
-        (seq? val) 'Sequence
-        :else (class val)))
+  (defn- dispatch-fn-arg [args]
+    (let [fn #(if (= '& (first %)) % (second %))]
+      (vec (flatten (map fn args)))))
 
-;;
-;; 
-;;
-(defn- default-args [args]
-  (let [fn #(if (and (classes? (first %))
-                     (not= '& (first %)))
-              (second %) %)]
-    (flatten (map fn args))))
+  (defn- dispatch-val [args]
+    (let [f #(cond (contains? common-type %) (common-type %)
+                   :else (symbol (name %)))]
+      (vec (map (comp f first) args))))
 
-(defn typed-args [args]
-  (let [typed-args (filter (comp classes? first) args)]
-    {:types (map #(let [f (first %)] (if (= '& f) 'Sequence f))
-                 typed-args),
-     :syms (map second typed-args)}))
+  (defn- dispatch-sym [args]
+    (vec (map second args))))
+
 
 (defn- signature [sig]
   (let [args (partition 2 (first sig))]
-    {:default-args (default-args args),
-     :typed-args (typed-args args),
-     :body (rest sig)}))
+    {:dispatch-fn-arg (dispatch-fn-arg args)
+     :dispatch-val (dispatch-val args)
+     :dispatch-sym (dispatch-sym args)
+     :fn-tail-body (rest sig)}))
 
 (defn- signatures [sigs]
   (map signature sigs))
 
 (defn- multi-signature [sig]
-  (let [args (vec (sig :default-args))
-        body (vec (map (fn [sym] `(classes ~sym))
-                       (-> sig :typed-args :syms)))]
+  (let [args (sig :dispatch-fn-arg)
+        body (vec (map (fn [sym] `(class ~sym))
+                       (-> sig :dispatch-sym)))]
     `(~args ~body)))
 
 (defn- multi-signatures [sigs]
   (map (comp multi-signature first)
-       (vals (group-by #(count (% :default-args)) sigs))))
+       (vals (group-by #(count (% :dispatch-fn-arg)) sigs))))
   
 (defn- method-signature [sig]
-  (let [types (vec (-> sig :typed-args :types))
-        syms  (vec (sig :default-args))
-        body  (sig :body)]
+  (let [types (sig :dispatch-val)
+        syms  (sig :dispatch-fn-arg)
+        body  (sig :fn-tail-body)]
     `(~types ~syms ~@body)))
 
 (defn- method-signatures [sigs]
@@ -73,11 +63,8 @@
 (defmacro defstrict* [name & sigs]
   (let [sigs (signatures sigs)
         multi-sigs (multi-signatures sigs)
-        method-sigs (method-signatures sigs)
-        imitate (filter #(not (resolve %))
-                        '[Nil Function List Vector HashMap HashSet Symbol Sequence])]
+        method-sigs (method-signatures sigs)]
     `(do
-       ~@(map (fn [s] `(def ~(with-meta s {:private true}) '~s)) imitate)
        (def ~name nil)
        (defmulti ~name (fn ~@multi-sigs))
        ~@(map (fn [s] `(defmethod ~name ~@s)) method-sigs))))

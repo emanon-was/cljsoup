@@ -6,26 +6,12 @@
 (defstrict test1 [] "test1")
 (defstrict test2
   ([] "test2")
-  ([String x] (str "test2:" x))
-  ([Number x] (+ x x))
-  ([String x String y] (str x ":" y))
-  ([Number x Number y] (* x y))
-  ([Number x Number y & plus] (+ x y (apply + plus)))
-  ([String x String y & plus] (str x "/" y "/" (clojure.string/join "/" plus))))
-
-(deftest classes?-test
-  (testing "class?"
-    (is (classes? '&))
-    (is (classes? 'Nil))
-    (is (classes? 'Function))
-    (is (classes? 'List))
-    (is (classes? 'Vector))
-    (is (classes? 'HashMap))
-    (is (classes? 'HashSet))
-    (is (classes? 'Symbol))
-    (is (classes? 'String))
-    (is (classes? 'Number))
-    (is (not (classes? 'x)))))
+  ([:String x] (str "test2:" x))
+  ([:Number x] (+ x x))
+  ([:String x :String y] (str x ":" y))
+  ([:Number x :Number y] (* x y))
+  ([:Number x :Number y & plus] (+ x y (apply + plus)))
+  ([:String x :String y & plus] (str x "/" y "/" (clojure.string/join "/" plus))))
 
 (deftest defstrict-test
   (testing "defstrict"
@@ -39,6 +25,3 @@
     (is (= (test2 "abc" "def" "ghi" "jkl") "abc/def/ghi/jkl"))
     (is (= (test2 1 2) 2))
     (is (= (test2 1 2 3) 6))))
-
-
-
