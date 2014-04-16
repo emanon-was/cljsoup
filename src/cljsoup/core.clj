@@ -14,7 +14,7 @@
    [org.jsoup Jsoup]
    [org.jsoup.nodes
     Attribute Attributes Comment DataNode Document
-    DocumentType Element Node TextNode XmlDeclaration]
+    DocumentType Element Node TextNode]
    [org.jsoup.select Elements]
    [org.jsoup.parser Parser Tag]))
 
@@ -48,9 +48,12 @@
     ([:URL u] (Jsoup/parse (slurp u) (.toString u) parser))
     ([:File f] (Jsoup/parse (slurp f) (.toString f) parser))
     ([:String s] (Jsoup/parse s "String" parser))
-    ([:Vector v] (hiccup/html v))
-    ([:Element e] (.toString e))
-    ([:Elements e] (.toString e))))
+    ([:Vector v] (Jsoup/parse (hiccup/html v) "Sexp" parser))))
+
+(defstrict expand
+  ([:Vector v] (hiccup/html v))
+  ([:Element e] (.toString e))
+  ([:Elements e] (.toString e)))
 
 ;;
 ;; Enlive nodes
@@ -61,7 +64,7 @@
 
 (defstrict nodes
   ([:Nil _] nil)
-  ([:String s] s)
+  ([:String s] (nodes (parse s)))
   ([:List l] (map nodes l))
   ([:Vector v] (map nodes v))
   ([:HashMap m] m)
@@ -199,7 +202,7 @@
 
 (defstrict value
   ([] #(value %))
-  ([:String s] #(val % s))
+  ([:String s] #(value % s))
   ([:Element e] (.val e))
   ([:Elements e] (.val e))
   ([:Element e :String s] (.val e s))

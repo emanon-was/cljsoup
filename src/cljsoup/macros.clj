@@ -5,8 +5,10 @@
 ;; defstrict
 ;;
 
+(defrecord TypedArg [type arg])
+
 (let [common-type
-      {'& clojure.lang.ArraySeq
+      {:Nil nil
        :Function clojure.lang.Fn
        :String java.lang.String
        :Number java.lang.Number
@@ -15,47 +17,56 @@
        :HashMap clojure.lang.PersistentArrayMap
        :HashSet clojure.lang.PersistentHashSet
        :Symbol clojure.lang.Symbol
-       :Sequence clojure.lang.ArraySeq
-       :Nil nil}]
+       :Sequence clojure.lang.Sequential}]
 
-  (defn- dispatch-fn-arg [args]
-    (let [fn #(if (= '& (first %)) % (second %))]
-      (vec (flatten (map fn args)))))
+  (defn- typed-args [args]
+    (loop [acc nil type nil args args]
+      (let [args? (seq args) type? type
+            arg (first args)]
+        (cond
+         (not args?) (reverse acc)
+         (= arg '&)  (reverse (into acc args))
+         (not type?) (if (keyword? arg)
+                       (recur acc
+                              (if (contains? common-type arg)
+                                (common-type arg)
+                                (symbol (name arg)))
+                              (rest args))
+                       (recur (cons arg acc) nil (rest args)))
+         type? (if (symbol? arg)
+                 (recur (cons (->TypedArg type arg) acc) nil (rest args))
+                 (recur (cons arg acc) nil (rest args))))))))
 
-  (defn- dispatch-val [args]
-    (let [f #(cond (contains? common-type %) (common-type %)
-                   :else (symbol (name %)))]
-      (vec (map (comp f first) args))))
-
-  (defn- dispatch-sym [args]
-    (vec (map second args))))
-
+(defn- typed-arg? [arg]
+  (instance? TypedArg arg))
 
 (defn- signature [sig]
-  (let [args (partition 2 (first sig))]
-    {:dispatch-fn-arg (dispatch-fn-arg args)
-     :dispatch-val (dispatch-val args)
-     :dispatch-sym (dispatch-sym args)
-     :fn-tail-body (rest sig)}))
+  (let [base-args (typed-args (first sig))
+        target-args (filter typed-arg? base-args)
+        dispatch-args
+        (vec (map (fn [_] (if (typed-arg? _) (:arg _) _)) base-args))]
+    {:multi-args  dispatch-args
+     :multi-body  (vec (map (fn [target] `(class ~(:arg target))) target-args))
+     :method-vals (vec (map #(:type %) target-args))
+     :method-args dispatch-args
+     :method-body (rest sig)}))
+
+(defn- multi-signature [sig]
+  `(~(:multi-args sig)
+    ~(:multi-body sig)))
+
+(defn- method-signature [sig]
+  `(~(:method-vals sig)
+    ~(:method-args sig)
+    ~@(:method-body sig)))
+
 
 (defn- signatures [sigs]
   (map signature sigs))
 
-(defn- multi-signature [sig]
-  (let [args (sig :dispatch-fn-arg)
-        body (vec (map (fn [sym] `(class ~sym))
-                       (-> sig :dispatch-sym)))]
-    `(~args ~body)))
-
 (defn- multi-signatures [sigs]
   (map (comp multi-signature first)
-       (vals (group-by #(count (% :dispatch-fn-arg)) sigs))))
-  
-(defn- method-signature [sig]
-  (let [types (sig :dispatch-val)
-        syms  (sig :dispatch-fn-arg)
-        body  (sig :fn-tail-body)]
-    `(~types ~syms ~@body)))
+       (vals (group-by #(count (:multi-args %)) sigs))))
 
 (defn- method-signatures [sigs]
   (map method-signature sigs))
