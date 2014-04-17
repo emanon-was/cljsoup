@@ -197,8 +197,11 @@
 
 (defstrict text
   ([] #(text %))
+  ([:String s] #(text % s))
   ([:Element e] (.text e))
-  ([:Elements e] (.text e)))
+  ([:Elements e] (.text e))
+  ([:Element e :String s] (.text e s))
+  ([:Elements e :String s] (map (text s) e)))
 
 (defstrict value
   ([] #(value %))
@@ -218,13 +221,11 @@
   ([:Element e] (.unwrap e))
   ([:Elements e] (.unwrap e)))
 
-(defstrict transform
-  ([:String s :Function f] #(transform % s f))
-  ([:Element e :String s :Function f]
-     (let [e (clone e)]
-       (-> e (.select s) f) e))
-  ([:Elements e :String s :Function f]
-     (let [e (clone e)]
-       (-> e (.select s) f) e)))
+(defstrict transform!
+  ([:String s :Function f] #(transform! % s f))
+  ([:Element e :String s :Function f] (doto e (.select s) f))
+  ([:Elements e :String s :Function f] (doto e (.select s) f)))
 
-
+;; (defstrict transform
+;;   ([:Element e & selector-and-method]
+;;      (let [(clone)])))
