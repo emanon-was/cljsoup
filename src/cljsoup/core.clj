@@ -221,11 +221,15 @@
   ([:Element e] (.unwrap e))
   ([:Elements e] (.unwrap e)))
 
-(defstrict transform!
-  ([:String s :Function f] #(transform! % s f))
-  ([:Element e :String s :Function f] (doto e (.select s) f))
-  ([:Elements e :String s :Function f] (doto e (.select s) f)))
+(defstrict transform
+  ([:String s :Function f] #(transform % s f))
+  ([:Element e :String s :Function f]
+     (let [c (clone e)] (-> c (.select s) f) c))
+  ([:Elements e :String s :Function f]
+     (let [c (clone e)] (-> c (.select s) f) c)))
 
-;; (defstrict transform
-;;   ([:Element e & selector-and-method]
-;;      (let [(clone)])))
+;; (defmacro transforms [elem & selector-and-method]
+;;   (let [base (gensym)
+;;         conv (fn [vec] #(~(last vec) (.select % ~(first vec))))]
+;;     `(let [~base (clone ~elem)]
+;;        ~@(map conv selector-and-method))))

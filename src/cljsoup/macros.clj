@@ -19,23 +19,30 @@
        :Symbol clojure.lang.Symbol
        :Sequence clojure.lang.Sequential}]
 
-  (defn- typed-args [args]
-    (loop [acc nil type nil args args]
-      (let [args? (seq args) type? type
-            arg (first args)]
-        (cond
-         (not args?) (reverse acc)
-         (= arg '&)  (reverse (into acc args))
-         (not type?) (if (keyword? arg)
-                       (recur acc
-                              (if (contains? common-type arg)
-                                (common-type arg)
-                                (symbol (name arg)))
-                              (rest args))
-                       (recur (cons arg acc) nil (rest args)))
-         type? (if (symbol? arg)
-                 (recur (cons (->TypedArg type arg) acc) nil (rest args))
-                 (recur (cons arg acc) nil (rest args))))))))
+  (defn- build-typedarg [key sym]
+    (->TypedArg
+     (if (contains? common-type key)
+       (common-type key)
+       (symbol (name key)))
+     sym)))
+
+
+(defn- typed-args [args]
+  (loop [arg  (first  args)
+         more (rest args)
+         acc  nil]
+    (cond
+     (not arg) (reverse acc)
+     (empty? more) (reverse (cons arg acc))
+     :else (let [next (first more)
+                 key  (if (keyword? arg) arg nil)
+                 sym  (if (symbol? next) next nil)]
+             (cond
+              (not key) (recur next (rest more) (cons arg acc))
+              (= next '&) (recur next (rest more) acc)
+              sym (let [rest-more (rest more)]
+                    (recur (first rest-more) (rest rest-more)
+                           (cons (build-typedarg key sym) acc))))))))
 
 (defn- typed-arg? [arg]
   (instance? TypedArg arg))
